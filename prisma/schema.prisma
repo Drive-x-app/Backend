@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,4 +8,149 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  CUSTOMER
+  DRIVER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING
+  SEARCHING
+  ACCEPTED
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum VehicleType {
+  SEDAN
+  SUV
+  PREMIUM
+  AUTO
+  BIKE
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  WALLET
+  UPI
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id                String         @id @default(uuid())
+  phoneNumber       String         @unique
+  fullName          String
+  email             String?        @unique
+  avatarUrl         String?
+  role              UserRole       @default(CUSTOMER)
+  city              String?        @default("Coimbatore")
+  preferredLanguage String?        @default("English")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relationships
+  driverProfile     DriverProfile?
+  bookings          Booking[]      @relation("CustomerBookings")
+  driverBookings    Booking[]      @relation("DriverBookings")
+  savedPlaces       SavedPlace[]
+
+  @@map("users")
+}
+
+model DriverProfile {
+  id            String       @id @default(uuid())
+  userId        String       @unique
+  isAvailable   Boolean      @default(true)
+  vehicleType   VehicleType  @default(SEDAN)
+  vehicleNumber String
+  vehicleModel  String?
+  rating        Float        @default(5.0)
+  totalRides    Int          @default(0)
+  latitude      Float?
+  longitude     Float?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("driver_profiles")
+}
+
+model DurationPackage {
+  id          String    @id
+  label       String
+  subtitle    String
+  hours       Int
+  baseFare    Float
+  description String
+  iconType    String    @default("clock")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  bookings    Booking[]
+
+  @@map("duration_packages")
+}
+
+model Booking {
+  id              String         @id @default(uuid())
+  customerId      String
+  driverId        String?
+  durationId      String?
+  pickupLocation  String
+  dropLocation    String?
+  pickupDate      String?
+  pickupTime      String?
+  timingMode      String         @default("now")
+  status          BookingStatus  @default(PENDING)
+  fare            Float
+  paymentMethod   PaymentMethod  @default(UPI)
+  paymentStatus   PaymentStatus  @default(PENDING)
+  createdAt       DateTime       @default(now())
+  completedAt     DateTime?
+
+  customer        User           @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  driver          User?          @relation("DriverBookings", fields: [driverId], references: [id], onDelete: SetNull)
+  durationPackage DurationPackage? @relation(fields: [durationId], references: [id], onDelete: SetNull)
+
+  @@map("bookings")
+}
+
+model SavedPlace {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  address   String
+  type      String    @default("home")
+  latitude  Float?
+  longitude Float?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("saved_places")
+}
+
+model OtpVerification {
+  id          String    @id @default(uuid())
+  phoneNumber String
+  otpCode     String
+  expiresAt   DateTime
+  isUsed      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@map("otp_verifications")
 }
