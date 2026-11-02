@@ -2,7 +2,7 @@ const { Client } = require('pg');
 
 async function main() {
   const client = new Client({
-    connectionString: 'postgresql://postgres:Hariesh003@localhost:5432/Driverx_db',
+    connectionString: 'postgresql://postgres:password@localhost:5432/Driverx_db',
   });
 
   await client.connect();

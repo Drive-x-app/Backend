@@ -119,7 +119,7 @@ export class BookingsService {
 
   /**
    * POST /api/v1/bookings
-   * Creates a driver hire booking request in PostgreSQL with initial PENDING state
+   * Creates a paid driver hire booking request in PostgreSQL with initial PENDING dispatch state
    */
   async create(dto: CreateBookingDto, userId: string): Promise<BookingResponseDto> {
     const pkg = await this.prisma.durationPackage.findUnique({
@@ -152,7 +152,7 @@ export class BookingsService {
         status: BookingStatus.PENDING,
         fare: totalFare,
         paymentMethod: dto.paymentMethod ?? 'UPI',
-        paymentStatus: 'PENDING',
+        paymentStatus: 'COMPLETED',
       },
       include: {
         durationPackage: true,

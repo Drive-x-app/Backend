@@ -35,7 +35,7 @@ describe('BookingsController', () => {
     fare: 524,
     currency: 'INR',
     paymentMethod: 'UPI',
-    paymentStatus: 'PENDING',
+    paymentStatus: 'COMPLETED',
     driverId: null,
     driverName: null,
     createdAt: new Date(),
@@ -130,6 +130,7 @@ describe('BookingsController', () => {
       );
       expect(result).toBeDefined();
       expect(result.status).toBe('PENDING');
+      expect(result.paymentStatus).toBe('COMPLETED');
       expect(result.driverId).toBeNull();
       expect(result.fare).toBe(524);
     });
