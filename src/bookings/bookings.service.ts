@@ -48,11 +48,13 @@ export class BookingsService {
       pickupTime: booking.pickupTime,
       timingMode: booking.timingMode,
       fare: booking.fare,
+      driverRating: booking.driverRating ?? null,
       currency: 'INR',
       paymentMethod: booking.paymentMethod,
       paymentStatus: booking.paymentStatus,
       driverId: booking.driverId,
       driverName: booking.driver?.fullName ?? null,
+      driverAverageRating: booking.driver?.driverProfile?.rating ?? null,
       createdAt: booking.createdAt,
       completedAt: booking.completedAt,
     };
@@ -156,7 +158,7 @@ export class BookingsService {
       },
       include: {
         durationPackage: true,
-        driver: true,
+        driver: { include: { driverProfile: true } },
       },
     });
 
@@ -174,7 +176,7 @@ export class BookingsService {
       take: 5,
       include: {
         durationPackage: true,
-        driver: true,
+        driver: { include: { driverProfile: true } },
       },
     });
 
@@ -203,7 +205,7 @@ export class BookingsService {
         take: limit,
         include: {
           durationPackage: true,
-          driver: true,
+          driver: { include: { driverProfile: true } },
         },
       }),
       this.prisma.booking.count({ where }),
@@ -229,7 +231,7 @@ export class BookingsService {
       where: { id },
       include: {
         durationPackage: true,
-        driver: true,
+        driver: { include: { driverProfile: true } },
       },
     });
 
@@ -254,7 +256,7 @@ export class BookingsService {
       where: { id },
       include: {
         durationPackage: true,
-        driver: true,
+        driver: { include: { driverProfile: true } },
       },
     });
 
@@ -281,9 +283,70 @@ export class BookingsService {
       },
       include: {
         durationPackage: true,
-        driver: true,
+        driver: { include: { driverProfile: true } },
       },
     });
+
+    return this.mapToResponseDto(updated);
+  }
+
+  async rateDriver(id: string, userId: string, rating: number): Promise<BookingResponseDto> {
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        const booking = await tx.booking.findUnique({ where: { id } });
+
+        if (!booking) {
+          throw new NotFoundException(`Booking with ID '${id}' not found.`);
+        }
+        if (booking.customerId !== userId) {
+          throw new ForbiddenException('You do not have permission to rate this booking.');
+        }
+        if (booking.status !== BookingStatus.COMPLETED) {
+          throw new BadRequestException('Only completed trips can be rated.');
+        }
+        if (!booking.driverId) {
+          throw new BadRequestException('This trip does not have an assigned driver to rate.');
+        }
+        if (booking.driverRating !== null) {
+          throw new BadRequestException('This trip has already been rated.');
+        }
+
+        const driverProfile = await tx.driverProfile.findUnique({
+          where: { userId: booking.driverId },
+        });
+        if (!driverProfile) {
+          throw new NotFoundException('The assigned driver profile could not be found.');
+        }
+
+        const totalRatings = driverProfile.totalRatings;
+        const updatedRating =
+          totalRatings === 0
+            ? rating
+            : (driverProfile.rating * totalRatings + rating) / (totalRatings + 1);
+
+        await tx.booking.update({
+          where: { id },
+          data: { driverRating: rating },
+        });
+
+        await tx.driverProfile.update({
+          where: { userId: booking.driverId },
+          data: {
+            rating: updatedRating,
+            totalRatings: { increment: 1 },
+          },
+        });
+
+        return tx.booking.findUnique({
+          where: { id },
+          include: {
+            durationPackage: true,
+            driver: { include: { driverProfile: true } },
+          },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
 
     return this.mapToResponseDto(updated);
   }
@@ -337,7 +400,7 @@ export class BookingsService {
         data: dataToUpdate,
         include: {
           durationPackage: true,
-          driver: true,
+          driver: { include: { driverProfile: true } },
         },
       });
     });

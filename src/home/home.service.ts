@@ -10,17 +10,17 @@ import {
   PromoBannerDto,
   ActiveBookingDetailDto,
 } from './dto/home-response.dto.js';
-import {
-  CreateBookingDto,
-  EstimateFareDto,
-  CreateSavedPlaceDto,
-  UpdateSavedPlaceDto,
-  CancelActiveBookingDto,
-} from './dto/booking.dto.js';
+import { CreateBookingDto, EstimateFareDto, CreateSavedPlaceDto, UpdateSavedPlaceDto, CancelActiveBookingDto } from './dto/booking.dto.js';
 
 @Injectable()
 export class HomeService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private readonly defaultDemoSavedPlaces = [
+    { title: 'Home', address: '123, Anna Nagar, Coimbatore' },
+    { title: 'Office', address: 'RS Puram, Coimbatore' },
+    { title: 'Parents Home', address: 'Saibaba Colony, Coimbatore' },
+  ];
 
   // Master trust features matching design
   private readonly trustFeatures: TrustFeatureDto[] = [
@@ -128,7 +128,9 @@ export class HomeService {
    */
   private async getOrCreateCustomer(userId?: string) {
     if (userId) {
-      const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+      const existing = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
       if (existing) return existing;
     }
 
@@ -149,6 +151,31 @@ export class HomeService {
         role: 'CUSTOMER',
         city: 'Coimbatore',
         preferredLanguage: 'English',
+      },
+    });
+  }
+
+  private async getOrCreateCustomerByPhone(phoneNumber?: string) {
+    const digits = phoneNumber?.replace(/\D/g, '');
+    if (!phoneNumber || !digits || digits.length < 10 || digits.length > 15) {
+      throw new BadRequestException('A valid account phone number is required.');
+    }
+
+    const normalizedPhoneNumber = `+${digits}`;
+    const customer = await this.prisma.user.findFirst({
+      where: {
+        role: 'CUSTOMER',
+        phoneNumber: { in: [phoneNumber, normalizedPhoneNumber] },
+      },
+    });
+
+    if (customer) return customer;
+
+    return this.prisma.user.create({
+      data: {
+        fullName: 'Customer',
+        phoneNumber: normalizedPhoneNumber,
+        role: 'CUSTOMER',
       },
     });
   }
@@ -183,43 +210,6 @@ export class HomeService {
         },
       },
       include: { driverProfile: true },
-    });
-  }
-
-  /**
-   * Helper: Seeds default saved places if a user has none
-   */
-  private async ensureDefaultSavedPlaces(userId: string) {
-    const count = await this.prisma.savedPlace.count({ where: { userId } });
-    if (count > 0) return;
-
-    await this.prisma.savedPlace.createMany({
-      data: [
-        {
-          userId,
-          title: 'Home',
-          address: '123, Anna Nagar, Coimbatore',
-          type: 'home',
-          latitude: 11.0168,
-          longitude: 76.9558,
-        },
-        {
-          userId,
-          title: 'Office',
-          address: 'RS Puram, Coimbatore',
-          type: 'office',
-          latitude: 11.0089,
-          longitude: 76.9524,
-        },
-        {
-          userId,
-          title: 'Parents Home',
-          address: 'Saibaba Colony, Coimbatore',
-          type: 'parents',
-          latitude: 11.0289,
-          longitude: 76.9456,
-        },
-      ],
     });
   }
 
@@ -287,10 +277,9 @@ export class HomeService {
    * GET /api/v1/home
    * Returns aggregated composite payload needed by the Customer Home Screen
    */
-  async getHomeScreenData(userId?: string): Promise<HomeScreenDataDto> {
+  async getHomeScreenData(phoneNumber?: string): Promise<HomeScreenDataDto> {
     await this.ensureDefaultDurations();
-    const customer = await this.getOrCreateCustomer(userId);
-    await this.ensureDefaultSavedPlaces(customer.id);
+    const customer = await this.getOrCreateCustomerByPhone(phoneNumber);
     await this.ensureDefaultRecentBookings(customer.id);
 
     // Parallel DB queries via Prisma
@@ -317,7 +306,9 @@ export class HomeService {
       this.prisma.booking.findFirst({
         where: {
           customerId: customer.id,
-          status: { in: ['PENDING', 'SEARCHING', 'ACCEPTED', 'ARRIVED', 'IN_PROGRESS'] },
+          status: {
+            in: ['PENDING', 'SEARCHING', 'ACCEPTED', 'ARRIVED', 'IN_PROGRESS'],
+          },
         },
         orderBy: { createdAt: 'desc' },
         include: {
@@ -348,14 +339,16 @@ export class HomeService {
       iconType: d.iconType,
     }));
 
-    const savedPlaces: SavedPlaceDto[] = dbSavedPlaces.map((p) => ({
-      id: p.id,
-      title: p.title,
-      address: p.address,
-      type: p.type,
-      latitude: p.latitude ?? undefined,
-      longitude: p.longitude ?? undefined,
-    }));
+    const savedPlaces: SavedPlaceDto[] = dbSavedPlaces
+      .filter((place) => !this.defaultDemoSavedPlaces.some((demoPlace) => demoPlace.title === place.title && demoPlace.address === place.address))
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        address: p.address,
+        type: p.type,
+        latitude: p.latitude ?? undefined,
+        longitude: p.longitude ?? undefined,
+      }));
 
     const recentBookings: RecentBookingDto[] = dbBookings.map((b) => ({
       id: b.id,
@@ -421,7 +414,9 @@ export class HomeService {
     const booking = await this.prisma.booking.findFirst({
       where: {
         customerId: customer.id,
-        status: { in: ['PENDING', 'SEARCHING', 'ACCEPTED', 'ARRIVED', 'IN_PROGRESS'] },
+        status: {
+          in: ['PENDING', 'SEARCHING', 'ACCEPTED', 'ARRIVED', 'IN_PROGRESS'],
+        },
       },
       orderBy: { createdAt: 'desc' },
       include: {
@@ -473,28 +468,29 @@ export class HomeService {
   /**
    * GET /api/v1/home/saved-places
    */
-  async getSavedPlaces(userId?: string): Promise<SavedPlaceDto[]> {
-    const customer = await this.getOrCreateCustomer(userId);
-    await this.ensureDefaultSavedPlaces(customer.id);
+  async getSavedPlaces(phoneNumber?: string): Promise<SavedPlaceDto[]> {
+    const customer = await this.getOrCreateCustomerByPhone(phoneNumber);
     const list = await this.prisma.savedPlace.findMany({
       where: { userId: customer.id },
       orderBy: { createdAt: 'asc' },
     });
-    return list.map((p) => ({
-      id: p.id,
-      title: p.title,
-      address: p.address,
-      type: p.type,
-      latitude: p.latitude ?? undefined,
-      longitude: p.longitude ?? undefined,
-    }));
+    return list
+      .filter((place) => !this.defaultDemoSavedPlaces.some((demoPlace) => demoPlace.title === place.title && demoPlace.address === place.address))
+      .map((p) => ({
+        id: p.id,
+        title: p.title,
+        address: p.address,
+        type: p.type,
+        latitude: p.latitude ?? undefined,
+        longitude: p.longitude ?? undefined,
+      }));
   }
 
   /**
    * POST /api/v1/home/saved-places
    */
-  async addSavedPlace(dto: CreateSavedPlaceDto, userId?: string): Promise<SavedPlaceDto> {
-    const customer = await this.getOrCreateCustomer(userId);
+  async addSavedPlace(dto: CreateSavedPlaceDto, phoneNumber?: string): Promise<SavedPlaceDto> {
+    const customer = await this.getOrCreateCustomerByPhone(phoneNumber);
     const created = await this.prisma.savedPlace.create({
       data: {
         userId: customer.id,
@@ -518,12 +514,8 @@ export class HomeService {
   /**
    * PATCH /api/v1/home/saved-places/:id
    */
-  async updateSavedPlace(
-    id: string,
-    dto: UpdateSavedPlaceDto,
-    userId?: string,
-  ): Promise<SavedPlaceDto> {
-    const customer = await this.getOrCreateCustomer(userId);
+  async updateSavedPlace(id: string, dto: UpdateSavedPlaceDto, phoneNumber?: string): Promise<SavedPlaceDto> {
+    const customer = await this.getOrCreateCustomerByPhone(phoneNumber);
     const existing = await this.prisma.savedPlace.findFirst({
       where: { id, userId: customer.id },
     });
@@ -555,11 +547,8 @@ export class HomeService {
   /**
    * DELETE /api/v1/home/saved-places/:id
    */
-  async deleteSavedPlace(
-    id: string,
-    userId?: string,
-  ): Promise<{ success: boolean; message: string }> {
-    const customer = await this.getOrCreateCustomer(userId);
+  async deleteSavedPlace(id: string, phoneNumber?: string): Promise<{ success: boolean; message: string }> {
+    const customer = await this.getOrCreateCustomerByPhone(phoneNumber);
     const existing = await this.prisma.savedPlace.findFirst({
       where: { id, userId: customer.id },
     });
@@ -691,9 +680,7 @@ export class HomeService {
   /**
    * PATCH /api/v1/home/notifications/read
    */
-  async markNotificationsAsRead(
-    userId?: string,
-  ): Promise<{ success: boolean; unreadNotificationCount: number }> {
+  async markNotificationsAsRead(userId?: string): Promise<{ success: boolean; unreadNotificationCount: number }> {
     await this.getOrCreateCustomer(userId);
     return {
       success: true,

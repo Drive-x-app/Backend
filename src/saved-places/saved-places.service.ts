@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateSavedPlaceDto } from './dto/create-saved-place.dto.js';
 import { UpdateSavedPlaceDto } from './dto/update-saved-place.dto.js';
@@ -8,30 +8,41 @@ import { SavedPlaceResponseDto } from './dto/saved-place-response.dto.js';
 export class SavedPlacesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /**
-   * Helper: Resolves authenticated customer or dev fallback
-   */
-  async resolveCustomerId(providedUserId?: string): Promise<string> {
+  private readonly defaultDemoSavedPlaces = [
+    { title: 'Home', address: '123, Anna Nagar, Coimbatore' },
+    { title: 'Office', address: 'RS Puram, Coimbatore' },
+    { title: 'Parents Home', address: 'Saibaba Colony, Coimbatore' },
+  ];
+
+  async resolveCustomerId(providedUserId?: string, phoneNumber?: string): Promise<string> {
     if (providedUserId) {
-      const user = await this.prisma.user.findUnique({ where: { id: providedUserId } });
-      if (user) return user.id;
+      const user = await this.prisma.user.findUnique({
+        where: { id: providedUserId },
+      });
+      if (user?.role === 'CUSTOMER') return user.id;
     }
 
-    const firstCustomer = await this.prisma.user.findFirst({
-      where: { role: 'CUSTOMER' },
-      orderBy: { createdAt: 'asc' },
+    const digits = phoneNumber?.replace(/\D/g, '');
+
+    if (!phoneNumber || !digits || digits.length < 10 || digits.length > 15) {
+      throw new BadRequestException('A valid customer ID or account phone number is required.');
+    }
+
+    const normalizedPhoneNumber = `+${digits}`;
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        role: 'CUSTOMER',
+        phoneNumber: { in: [phoneNumber, normalizedPhoneNumber] },
+      },
     });
 
-    if (firstCustomer) return firstCustomer.id;
+    if (existing) return existing.id;
 
-    // Create default customer if database was freshly initialized
     const created = await this.prisma.user.create({
       data: {
-        fullName: 'Priya Sharma',
-        phoneNumber: '+91 98765 43210',
-        email: 'priya.sharma@driverx.com',
+        fullName: 'Customer',
+        phoneNumber: normalizedPhoneNumber,
         role: 'CUSTOMER',
-        city: 'Coimbatore',
       },
     });
 
@@ -43,10 +54,11 @@ export class SavedPlacesService {
    * Retrieves all saved places belonging strictly to the authenticated customer
    */
   async findAll(userId: string): Promise<SavedPlaceResponseDto[]> {
-    return this.prisma.savedPlace.findMany({
+    const places = await this.prisma.savedPlace.findMany({
       where: { userId },
       orderBy: { createdAt: 'asc' },
     });
+    return places.filter((place) => !this.defaultDemoSavedPlaces.some((demoPlace) => demoPlace.title === place.title && demoPlace.address === place.address));
   }
 
   /**

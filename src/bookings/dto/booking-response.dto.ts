@@ -34,6 +34,9 @@ export class BookingResponseDto {
   @ApiProperty({ example: 524 })
   fare: number;
 
+  @ApiPropertyOptional({ example: 5, nullable: true, description: 'Customer rating for the completed trip' })
+  driverRating?: number | null;
+
   @ApiProperty({ example: 'INR' })
   currency: string;
 
@@ -48,6 +51,9 @@ export class BookingResponseDto {
 
   @ApiPropertyOptional({ example: null, nullable: true, description: 'Assigned Driver Full Name' })
   driverName?: string | null;
+
+  @ApiPropertyOptional({ example: 4.8, nullable: true, description: 'Driver average rating' })
+  driverAverageRating?: number | null;
 
   @ApiProperty({ example: '2026-10-27T10:00:00.000Z' })
   createdAt: Date;

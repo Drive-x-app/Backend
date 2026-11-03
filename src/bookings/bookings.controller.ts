@@ -27,6 +27,7 @@ import { CancelBookingDto } from './dto/cancel-booking.dto.js';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto.js';
 import { QueryBookingsDto } from './dto/query-bookings.dto.js';
 import { PaginatedBookingsResponseDto } from './dto/paginated-bookings-response.dto.js';
+import { RateDriverDto } from './dto/rate-driver.dto.js';
 
 @ApiTags('Bookings')
 @Controller('bookings')
@@ -149,6 +150,31 @@ export class BookingsController {
   ): Promise<BookingResponseDto> {
     const customerId = await this.bookingsService.resolveCustomerId(userId);
     return this.bookingsService.cancel(id, customerId, dto);
+  }
+
+  /**
+   * PATCH /api/v1/bookings/:id/rating
+   */
+  @Patch(':id/rating')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Rate the driver for a completed booking',
+    description: 'Allows the booking customer to submit one 1-to-5-star rating after the trip is completed.',
+  })
+  @ApiParam({ name: 'id', description: 'Booking UUID' })
+  @ApiBody({ type: RateDriverDto })
+  @ApiQuery({ name: 'userId', required: false, description: 'Optional Customer UUID for dev testing' })
+  @ApiResponse({ status: 200, description: 'Rating saved successfully', type: BookingResponseDto })
+  @ApiResponse({ status: 400, description: 'Booking is not completed, has no assigned driver, or is already rated' })
+  @ApiResponse({ status: 403, description: 'Forbidden from rating another customer booking' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  async rateDriver(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RateDriverDto,
+    @Query('userId') userId?: string,
+  ): Promise<BookingResponseDto> {
+    const customerId = await this.bookingsService.resolveCustomerId(userId);
+    return this.bookingsService.rateDriver(id, customerId, dto.rating);
   }
 
   /**

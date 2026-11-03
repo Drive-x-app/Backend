@@ -1,16 +1,4 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Param,
-  Body,
-  Query,
-  ParseUUIDPipe,
-  HttpCode,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { SavedPlacesService } from './saved-places.service.js';
 import { CreateSavedPlaceDto } from './dto/create-saved-place.dto.js';
@@ -30,10 +18,19 @@ export class SavedPlacesController {
     summary: "List all authenticated customer's saved places",
     description: 'Retrieves all saved addresses (Home, Office, Parents Home) for the customer.',
   })
-  @ApiQuery({ name: 'userId', required: false, description: 'Optional Customer UUID for dev testing' })
-  @ApiResponse({ status: 200, description: 'List of saved places', type: [SavedPlaceResponseDto] })
-  async findAll(@Query('userId') userId?: string): Promise<SavedPlaceResponseDto[]> {
-    const customerId = await this.savedPlacesService.resolveCustomerId(userId);
+  @ApiQuery({ name: 'userId', required: false, description: 'Customer UUID' })
+  @ApiQuery({
+    name: 'phoneNumber',
+    required: false,
+    description: 'Customer account phone number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'List of saved places',
+    type: [SavedPlaceResponseDto],
+  })
+  async findAll(@Query('userId') userId?: string, @Query('phoneNumber') phoneNumber?: string): Promise<SavedPlaceResponseDto[]> {
+    const customerId = await this.savedPlacesService.resolveCustomerId(userId, phoneNumber);
     return this.savedPlacesService.findAll(customerId);
   }
 
@@ -47,13 +44,19 @@ export class SavedPlacesController {
   })
   @ApiParam({ name: 'id', description: 'Saved Place UUID', format: 'uuid' })
   @ApiQuery({ name: 'userId', required: false })
-  @ApiResponse({ status: 200, description: 'Saved place detail', type: SavedPlaceResponseDto })
+  @ApiQuery({ name: 'phoneNumber', required: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Saved place detail',
+    type: SavedPlaceResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Place not found or unauthorized' })
   async findOne(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('userId') userId?: string,
+    @Query('phoneNumber') phoneNumber?: string,
   ): Promise<SavedPlaceResponseDto> {
-    const customerId = await this.savedPlacesService.resolveCustomerId(userId);
+    const customerId = await this.savedPlacesService.resolveCustomerId(userId, phoneNumber);
     return this.savedPlacesService.findOne(id, customerId);
   }
 
@@ -68,12 +71,14 @@ export class SavedPlacesController {
   })
   @ApiBody({ type: CreateSavedPlaceDto })
   @ApiQuery({ name: 'userId', required: false })
-  @ApiResponse({ status: 201, description: 'Place created successfully', type: SavedPlaceResponseDto })
-  async create(
-    @Body() dto: CreateSavedPlaceDto,
-    @Query('userId') userId?: string,
-  ): Promise<SavedPlaceResponseDto> {
-    const customerId = await this.savedPlacesService.resolveCustomerId(userId);
+  @ApiQuery({ name: 'phoneNumber', required: false })
+  @ApiResponse({
+    status: 201,
+    description: 'Place created successfully',
+    type: SavedPlaceResponseDto,
+  })
+  async create(@Body() dto: CreateSavedPlaceDto, @Query('userId') userId?: string, @Query('phoneNumber') phoneNumber?: string): Promise<SavedPlaceResponseDto> {
+    const customerId = await this.savedPlacesService.resolveCustomerId(userId, phoneNumber);
     return this.savedPlacesService.create(dto, customerId);
   }
 
@@ -88,14 +93,20 @@ export class SavedPlacesController {
   @ApiParam({ name: 'id', description: 'Saved Place UUID', format: 'uuid' })
   @ApiBody({ type: UpdateSavedPlaceDto })
   @ApiQuery({ name: 'userId', required: false })
-  @ApiResponse({ status: 200, description: 'Updated place record', type: SavedPlaceResponseDto })
+  @ApiQuery({ name: 'phoneNumber', required: false })
+  @ApiResponse({
+    status: 200,
+    description: 'Updated place record',
+    type: SavedPlaceResponseDto,
+  })
   @ApiResponse({ status: 404, description: 'Place not found or unauthorized' })
   async update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body() dto: UpdateSavedPlaceDto,
     @Query('userId') userId?: string,
+    @Query('phoneNumber') phoneNumber?: string,
   ): Promise<SavedPlaceResponseDto> {
-    const customerId = await this.savedPlacesService.resolveCustomerId(userId);
+    const customerId = await this.savedPlacesService.resolveCustomerId(userId, phoneNumber);
     return this.savedPlacesService.update(id, dto, customerId);
   }
 
@@ -109,13 +120,15 @@ export class SavedPlacesController {
   })
   @ApiParam({ name: 'id', description: 'Saved Place UUID', format: 'uuid' })
   @ApiQuery({ name: 'userId', required: false })
+  @ApiQuery({ name: 'phoneNumber', required: false })
   @ApiResponse({ status: 200, description: 'Place removed successfully' })
   @ApiResponse({ status: 404, description: 'Place not found or unauthorized' })
   async remove(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Query('userId') userId?: string,
+    @Query('phoneNumber') phoneNumber?: string,
   ): Promise<{ success: boolean; message: string }> {
-    const customerId = await this.savedPlacesService.resolveCustomerId(userId);
+    const customerId = await this.savedPlacesService.resolveCustomerId(userId, phoneNumber);
     return this.savedPlacesService.remove(id, customerId);
   }
 }

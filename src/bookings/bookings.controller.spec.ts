@@ -73,6 +73,11 @@ describe('BookingsController', () => {
               }
               throw new NotFoundException(`Booking with ID '${id}' not found.`);
             }),
+            rateDriver: vi.fn().mockResolvedValue({
+              ...mockBookingResponse,
+              status: 'COMPLETED',
+              driverRating: 5,
+            }),
             updateStatus: vi.fn().mockImplementation((id: string, dto: any) => {
               if (id === mockBookingResponse.id) {
                 return Promise.resolve({ ...mockBookingResponse, status: dto.status });
@@ -185,6 +190,23 @@ describe('BookingsController', () => {
         status: BookingStatus.ACCEPTED,
       });
       expect(result.status).toBe('ACCEPTED');
+    });
+
+    describe('rateDriver', () => {
+      it('should save a customer rating for a completed booking', async () => {
+        const result = await controller.rateDriver(
+          mockBookingResponse.id,
+          { rating: 5 },
+          'user-1',
+        );
+
+        expect(service.rateDriver).toHaveBeenCalledWith(
+          mockBookingResponse.id,
+          'user-1',
+          5,
+        );
+        expect(result.driverRating).toBe(5);
+      });
     });
   });
 });

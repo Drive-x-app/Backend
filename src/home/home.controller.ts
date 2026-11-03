@@ -1,33 +1,8 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Patch,
-  Delete,
-  Body,
-  Param,
-  Query,
-  HttpCode,
-  HttpStatus,
-  ParseUUIDPipe,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, ParseUUIDPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody, ApiParam } from '@nestjs/swagger';
 import { HomeService } from './home.service.js';
-import {
-  CreateBookingDto,
-  EstimateFareDto,
-  CreateSavedPlaceDto,
-  UpdateSavedPlaceDto,
-  CancelActiveBookingDto,
-} from './dto/booking.dto.js';
-import {
-  HomeScreenDataDto,
-  DurationOptionDto,
-  SavedPlaceDto,
-  RecentBookingDto,
-  PromoBannerDto,
-  ActiveBookingDetailDto,
-} from './dto/home-response.dto.js';
+import { CreateBookingDto, EstimateFareDto, CreateSavedPlaceDto, UpdateSavedPlaceDto, CancelActiveBookingDto } from './dto/booking.dto.js';
+import { HomeScreenDataDto, DurationOptionDto, SavedPlaceDto, RecentBookingDto, PromoBannerDto, ActiveBookingDetailDto } from './dto/home-response.dto.js';
 
 @ApiTags('Home')
 @Controller('home')
@@ -44,10 +19,18 @@ export class HomeController {
     description:
       'Fetches customer profile, available booking durations, saved locations, recent trip history, active booking, banners, and service trust badges.',
   })
-  @ApiQuery({ name: 'userId', required: false, description: 'Optional Customer UUID' })
-  @ApiResponse({ status: 200, description: 'Composite home payload', type: HomeScreenDataDto })
-  async getHomeScreenData(@Query('userId') userId?: string): Promise<HomeScreenDataDto> {
-    return this.homeService.getHomeScreenData(userId);
+  @ApiQuery({
+    name: 'phoneNumber',
+    required: true,
+    description: 'Customer account phone number',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Composite home payload',
+    type: HomeScreenDataDto,
+  })
+  async getHomeScreenData(@Query('phoneNumber') phoneNumber?: string): Promise<HomeScreenDataDto> {
+    return this.homeService.getHomeScreenData(phoneNumber);
   }
 
   /**
@@ -59,7 +42,11 @@ export class HomeController {
     summary: 'Get available driver booking duration packages',
     description: 'Lists all available driver hire durations (1h, 2h, 4h, 6h, Full Day, 1 Week) with base pricing.',
   })
-  @ApiResponse({ status: 200, description: 'List of duration packages', type: [DurationOptionDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'List of duration packages',
+    type: [DurationOptionDto],
+  })
   async getDurations(): Promise<DurationOptionDto[]> {
     return this.homeService.getDurations();
   }
@@ -73,7 +60,11 @@ export class HomeController {
     summary: 'Get Home Screen promotional banners',
     description: 'Retrieves active marketing coupons, discount banners, and promotional cards for customer display.',
   })
-  @ApiResponse({ status: 200, description: 'List of promotional banners', type: [PromoBannerDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'List of promotional banners',
+    type: [PromoBannerDto],
+  })
   getBanners(): PromoBannerDto[] {
     return this.homeService.getBanners();
   }
@@ -87,8 +78,16 @@ export class HomeController {
     summary: 'Get currently active booking',
     description: 'Fetches active booking details, driver assignment, vehicle info, and ETA for the home screen card.',
   })
-  @ApiQuery({ name: 'userId', required: false, description: 'Optional Customer UUID' })
-  @ApiResponse({ status: 200, description: 'Active booking detail or null', type: ActiveBookingDetailDto })
+  @ApiQuery({
+    name: 'userId',
+    required: false,
+    description: 'Optional Customer UUID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Active booking detail or null',
+    type: ActiveBookingDetailDto,
+  })
   async getActiveBooking(@Query('userId') userId?: string): Promise<ActiveBookingDetailDto | null> {
     return this.homeService.getActiveBooking(userId);
   }
@@ -108,11 +107,7 @@ export class HomeController {
   @ApiResponse({ status: 200, description: 'Booking cancelled successfully' })
   @ApiResponse({ status: 400, description: 'Booking cannot be cancelled' })
   @ApiResponse({ status: 404, description: 'Booking not found' })
-  async cancelActiveBooking(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: CancelActiveBookingDto,
-    @Query('userId') userId?: string,
-  ) {
+  async cancelActiveBooking(@Param('id', ParseUUIDPipe) id: string, @Body() dto: CancelActiveBookingDto, @Query('userId') userId?: string) {
     return this.homeService.cancelActiveBooking(id, dto, userId);
   }
 
@@ -125,10 +120,14 @@ export class HomeController {
     summary: "Get customer's saved places",
     description: 'Fetches saved favorite locations (Home, Office, Parents Home) for one-tap pickup/drop selection.',
   })
-  @ApiQuery({ name: 'userId', required: false })
-  @ApiResponse({ status: 200, description: 'Customer saved places list', type: [SavedPlaceDto] })
-  async getSavedPlaces(@Query('userId') userId?: string): Promise<SavedPlaceDto[]> {
-    return this.homeService.getSavedPlaces(userId);
+  @ApiQuery({ name: 'phoneNumber', required: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer saved places list',
+    type: [SavedPlaceDto],
+  })
+  async getSavedPlaces(@Query('phoneNumber') phoneNumber?: string): Promise<SavedPlaceDto[]> {
+    return this.homeService.getSavedPlaces(phoneNumber);
   }
 
   /**
@@ -142,12 +141,14 @@ export class HomeController {
     description: 'Allows a customer to save an address with label and coordinates.',
   })
   @ApiBody({ type: CreateSavedPlaceDto })
-  @ApiResponse({ status: 201, description: 'Created saved place record', type: SavedPlaceDto })
-  async addSavedPlace(
-    @Body() dto: CreateSavedPlaceDto,
-    @Query('userId') userId?: string,
-  ): Promise<SavedPlaceDto> {
-    return this.homeService.addSavedPlace(dto, userId);
+  @ApiQuery({ name: 'phoneNumber', required: true })
+  @ApiResponse({
+    status: 201,
+    description: 'Created saved place record',
+    type: SavedPlaceDto,
+  })
+  async addSavedPlace(@Body() dto: CreateSavedPlaceDto, @Query('phoneNumber') phoneNumber?: string): Promise<SavedPlaceDto> {
+    return this.homeService.addSavedPlace(dto, phoneNumber);
   }
 
   /**
@@ -161,15 +162,19 @@ export class HomeController {
   })
   @ApiParam({ name: 'id', description: 'Saved Place UUID' })
   @ApiBody({ type: UpdateSavedPlaceDto })
-  @ApiQuery({ name: 'userId', required: false })
-  @ApiResponse({ status: 200, description: 'Updated saved place record', type: SavedPlaceDto })
+  @ApiQuery({ name: 'phoneNumber', required: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Updated saved place record',
+    type: SavedPlaceDto,
+  })
   @ApiResponse({ status: 404, description: 'Saved place not found' })
   async updateSavedPlace(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateSavedPlaceDto,
-    @Query('userId') userId?: string,
+    @Query('phoneNumber') phoneNumber?: string,
   ): Promise<SavedPlaceDto> {
-    return this.homeService.updateSavedPlace(id, dto, userId);
+    return this.homeService.updateSavedPlace(id, dto, phoneNumber);
   }
 
   /**
@@ -182,14 +187,11 @@ export class HomeController {
     description: 'Removes a favorite address from the customer account.',
   })
   @ApiParam({ name: 'id', description: 'Saved Place UUID' })
-  @ApiQuery({ name: 'userId', required: false })
+  @ApiQuery({ name: 'phoneNumber', required: true })
   @ApiResponse({ status: 200, description: 'Saved place removed successfully' })
   @ApiResponse({ status: 404, description: 'Saved place not found' })
-  async deleteSavedPlace(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Query('userId') userId?: string,
-  ) {
-    return this.homeService.deleteSavedPlace(id, userId);
+  async deleteSavedPlace(@Param('id', ParseUUIDPipe) id: string, @Query('phoneNumber') phoneNumber?: string) {
+    return this.homeService.deleteSavedPlace(id, phoneNumber);
   }
 
   /**
@@ -202,7 +204,11 @@ export class HomeController {
     description: 'Returns past completed, pending, or in-progress bookings for the home-screen card.',
   })
   @ApiQuery({ name: 'userId', required: false })
-  @ApiResponse({ status: 200, description: 'List of recent bookings', type: [RecentBookingDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'List of recent bookings',
+    type: [RecentBookingDto],
+  })
   async getRecentBookings(@Query('userId') userId?: string): Promise<RecentBookingDto[]> {
     return this.homeService.getRecentBookings(userId);
   }
@@ -234,7 +240,10 @@ export class HomeController {
     description: 'Creates a driver hire request in PENDING state ready for driver assignment.',
   })
   @ApiBody({ type: CreateBookingDto })
-  @ApiResponse({ status: 201, description: 'Booking request created successfully' })
+  @ApiResponse({
+    status: 201,
+    description: 'Booking request created successfully',
+  })
   async createBooking(@Body() dto: CreateBookingDto, @Query('userId') userId?: string) {
     return this.homeService.createBooking(dto, userId);
   }

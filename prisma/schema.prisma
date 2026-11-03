@@ -77,6 +77,7 @@ model DriverProfile {
   vehicleNumber String
   vehicleModel  String?
   rating        Float        @default(5.0)
+  totalRatings  Int          @default(0)
   totalRides    Int          @default(0)
   latitude      Float?
   longitude     Float?
@@ -116,6 +117,7 @@ model Booking {
   timingMode      String         @default("now")
   status          BookingStatus  @default(PENDING)
   fare            Float
+  driverRating    Int?
   paymentMethod   PaymentMethod  @default(UPI)
   paymentStatus   PaymentStatus  @default(PENDING)
   createdAt       DateTime       @default(now())
